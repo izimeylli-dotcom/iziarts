@@ -1,38 +1,418 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="de">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Izi Arts Portfolio</title>
-    <link rel="stylesheet" href="styles.css">
+    <title>Izi Arts | Impressionistische Kunst</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Inter:wght@300;400;500&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --accent: #a39171;
+            --bg-creme: #faf9f6;
+        }
+        html {
+            scroll-behavior: smooth;
+        }
+        body {
+            font-family: 'Inter', sans-serif;
+            overflow-x: hidden;
+            background-color: var(--bg-creme);
+        }
+        h1, h2, h3, .serif {
+            font-family: 'Playfair Display', serif;
+        }
+
+        .reveal {
+            opacity: 0;
+            transform: translateY(30px);
+            transition: all 1.2s cubic-bezier(0.22, 1, 0.36, 1);
+        }
+        .reveal.active {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .hero-title {
+            animation: heroFadeIn 2s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+        }
+        @keyframes heroFadeIn {
+            0% { opacity: 0; transform: translateY(40px); letter-spacing: 0.2em; }
+            100% { opacity: 1; transform: translateY(0); letter-spacing: 0.1em; }
+        }
+
+        .cart-sidebar {
+            transition: transform 0.5s cubic-bezier(0.77, 0, 0.175, 1);
+        }
+        .cart-open { transform: translateX(0); }
+        .cart-closed { transform: translateX(100%); }
+
+        .image-overlay {
+            background: rgba(255, 255, 255, 0);
+            backdrop-filter: blur(0px);
+            transition: all 0.4s ease;
+        }
+
+        @media (max-width: 1023px) {
+            .image-overlay {
+                opacity: 1;
+                background: transparent;
+            }
+        }
+
+        @media (min-width: 1024px) {
+            .group:hover .image-overlay {
+                background: rgba(255, 255, 255, 0.2);
+                backdrop-filter: blur(4px);
+                opacity: 1;
+            }
+        }
+
+        /* ✅ FIX: Warenkorb Sidebar als echter Flex-Container */
+        #cart-sidebar {
+            display: flex;
+            flex-direction: column;
+            height: 100vh; /* wird per JS überschrieben */
+            height: 100dvh;
+        }
+
+        /* CSS Variable wird per JS gesetzt — funktioniert in Chrome Mobile */
+        @supports (height: 100dvh) {
+            #cart-sidebar { height: 100dvh; }
+        }
+
+        #cart-items-list {
+            flex: 1 1 auto;
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+            min-height: 0; /* ✅ Kritisch: ohne das ignoriert Flexbox das overflow */
+        }
+
+        #cart-footer {
+            flex: 0 0 auto;
+            background: white;
+            box-shadow: 0 -10px 20px rgba(0,0,0,0.05);
+            padding: 24px 24px calc(24px + env(safe-area-inset-bottom, 16px));
+        }
+
+        .no-scroll {
+            overflow: hidden;
+        }
+        
+        .daten {
+            text-align: center;
+            margin: 10px;
+            font-family: serif, 'italic';
+        }
+    </style>
 </head>
-<body>
-    <header>
-        <h1>Welcome to Izi Arts</h1>
-        <nav>
-            <ul>
-                <li><a href="#about">About</a></li>
-                <li><a href="#portfolio">Portfolio</a></li>
-                <li><a href="#contact">Contact</a></li>
-            </ul>
-        </nav>
+<body class="text-gray-900">
+    <div id="cookie-banner" class="fixed inset-0 z-[100] flex items-end justify-center p-4 md:p-8 pointer-events-none">
+    <div class="bg-white w-full max-w-2xl shadow-[0_0_50px_rgba(0,0,0,0.1)] border border-gray-100 p-6 md:p-8 pointer-events-auto reveal active">
+        <h2 class="serif italic text-xl mb-4">Datenschutz & Cookies</h2>
+        <p class="text-xs text-gray-500 leading-relaxed mb-6">
+            Um meine Kunstwerke optimal zu präsentieren, nutze ich Schriftarten von Google und ein Design-System (Tailwind). Beim Besuch der Seite werden technisch notwendige Daten verarbeitet. Details findest du in der 
+            <a href="datenschutzerklärung.html" class="underline hover:text-[--accent]">Datenschutzerklärung</a> und im 
+            <a href="impressum.html" class="underline hover:text-[--accent]">Impressum</a>.
+        </p>
+        <div class="flex flex-col md:flex-row gap-4">
+            <button onclick="acceptCookies()" class="flex-1 bg-gray-900 text-white py-3 uppercase text-[10px] tracking-widest hover:bg-[--accent] transition-all">Akzeptieren</button>
+            <button onclick="rejectCookies()" class="flex-1 border border-gray-200 text-gray-400 py-3 uppercase text-[10px] tracking-widest hover:bg-gray-50 transition-all">Ablehnen</button>
+        </div>
+    </div>
+</div>
+
+
+    <div id="cart-overlay" onclick="toggleCart()" class="fixed inset-0 bg-black/20 z-[60] opacity-0 pointer-events-none transition-opacity duration-500"></div>
+
+    <!-- Warenkorb Sidebar -->
+    <div id="cart-sidebar" class="fixed top-0 right-0 w-full md:w-[450px] bg-white z-[70] shadow-2xl cart-sidebar cart-closed">
+        <!-- Header -->
+        <div class="p-6 border-b border-gray-50 flex justify-between items-center flex-shrink-0">
+            <h2 class="text-2xl serif italic">Warenkorb</h2>
+            <button onclick="toggleCart()" class="text-gray-400 hover:text-black transition p-2">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+            </button>
+        </div>
+
+        <!-- Scrollbarer Bereich -->
+        <div id="cart-items-list" class="p-6 space-y-6">
+            <p class="text-gray-400 text-center italic py-20">Noch keine Kunstwerke ausgewählt.</p>
+        </div>
+
+        <!-- Footer — bleibt IMMER unten sichtbar -->
+        <div id="cart-footer" class="p-6 border-t border-gray-100 hidden">
+            <div class="flex justify-between items-center mb-6">
+                <span class="uppercase tracking-[0.2em] text-[10px] text-gray-500">Gesamtbetrag</span>
+                <span id="cart-total" class="text-xl serif">0,00 €</span>
+            </div>
+            <button onclick="showCheckout()" class="w-full bg-gray-900 text-white py-5 uppercase text-[10px] tracking-[0.3em] hover:bg-[--accent] transition-all duration-500 active:scale-95">Anfrage senden</button>
+        </div>
+    </div>
+
+    <!-- Navigation -->
+    <nav class="fixed w-full z-50 transition-all duration-500 px-4 md:px-6 py-4 md:py-6" id="main-nav">
+        <div class="max-w-7xl mx-auto flex justify-between items-center">
+            <a href="#" class="text-xl md:text-2xl font-bold tracking-[0.2em] serif uppercase">Izi Arts</a>
+            <div class="flex items-center space-x-6">
+                <div class="flex space-x-4 md:space-x-8 uppercase text-[9px] md:text-[10px] tracking-[0.2em] font-medium">
+                    <a href="#gallery" class="hover:text-[--accent] transition">Galerie</a>
+                    <a href="#contact-section" class="hover:text-[--accent] transition">Kontakt</a>
+                </div>
+                <div class="relative cursor-pointer group" onclick="toggleCart()">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 group-hover:text-[--accent] transition" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
+                    </svg>
+                    <span id="cart-count" class="absolute -top-2 -right-2 bg-[--accent] text-white text-[9px] rounded-full h-4 w-4 flex items-center justify-center opacity-0 scale-0 transition-all duration-500">0</span>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Hero -->
+    <header class="relative h-screen flex items-center justify-center overflow-hidden bg-[#d9e4e6]">
+        <div class="absolute inset-0 z-0">
+            <img src="https://uploads.onecompiler.io/445ndr3tz/44dyvsn3y/1000104349.jpg" alt="Hero Art" class="w-full h-full object-cover opacity-30 grayscale-[30%]">
+        </div>
+        <div class="relative z-10 text-center px-4 hero-title">
+            <p class="uppercase tracking-[0.5em] text-[10px] mb-6 text-gray-500">Originalgemälde von Izi</p>
+            <h1 class="text-5xl md:text-9xl mb-8 serif italic leading-tight">Izi Arts</h1>
+            <p class="serif text-lg md:text-xl italic text-gray-600 max-w-md mx-auto mb-8">Handgemalte Unikate für dein Zuhause.</p>
+            <a href="#gallery" class="inline-block border-b border-gray-900 pb-2 uppercase text-[10px] tracking-[0.4em] hover:text-[--accent] hover:border-[--accent] transition-all duration-500">Zur Kollektion</a>
+        </div>
     </header>
-    <main>
-        <section id="about">
-            <h2>About Me</h2>
-            <p>This is a brief introduction about the artist.</p>
-        </section>
-        <section id="portfolio">
-            <h2>My Work</h2>
-            <p>Gallery of artworks will be displayed here.</p>
-        </section>
-        <section id="contact">
-            <h2>Contact</h2>
-            <p>This section will provide contact information.</p>
-        </section>
-    </main>
-    <footer>
-        <p>&copy; 2026 Izi Arts</p>
-    </footer>
+
+    <!-- Galerie -->
+    <section id="gallery" class="max-w-7xl mx-auto px-6 py-20 md:py-32">
+        <div class="reveal mb-12 md:mb-20 text-center md:text-left">
+            <h2 class="text-3xl md:text-4xl serif italic">Meine Kollektion</h2>
+            <p class="text-gray-400 text-[10px] uppercase tracking-[0.3em] mt-4">Wähle Favoriten für eine unverbindliche Anfrage</p>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-12 gap-y-16" id="paintings-grid"></div>
+    </section>
+
+    <!-- Kontakt -->
+    <section id="contact-section" class="bg-white py-20 md:py-32 border-t border-gray-100">
+        <div class="max-w-3xl mx-auto px-6 text-center reveal">
+            <h2 class="text-3xl md:text-4xl serif italic mb-12">Kontakt</h2>
+            <form action="https://formsubmit.co/izimeylli@gmail.com" method="POST" class="max-w-md mx-auto space-y-6 mb-16">
+                <input type="hidden" name="_captcha" value="false">
+                <input type="text" name="name" placeholder="Name" required class="w-full border-b border-gray-200 py-3 focus:outline-none focus:border-[--accent] transition text-sm bg-transparent">
+                <input type="email" name="email" placeholder="E-Mail" required class="w-full border-b border-gray-200 py-3 focus:outline-none focus:border-[--accent] transition text-sm bg-transparent">
+                <textarea name="message" placeholder="Nachricht" rows="3" class="w-full border-b border-gray-200 py-3 focus:outline-none focus:border-[--accent] transition text-sm bg-transparent resize-none"></textarea>
+                <button type="submit" class="w-full bg-gray-900 text-white py-4 uppercase text-[10px] tracking-widest hover:bg-[--accent] transition-all">Senden</button>
+            </form>
+            <div class="flex justify-center space-x-8">
+                <a href="https://instagram.com/izi.arts" target="_blank" class="text-gray-400 hover:text-[--accent] transition">
+                    <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/></svg>
+                </a>
+                <a href="https://www.tiktok.com/@iziarts" target="_blank" class="text-gray-400 hover:text-[--accent] transition">
+                    <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M12.525.02c1.31-.02 2.61-.01 3.91-.02.08 1.53.63 3.09 1.75 4.17 1.12 1.11 2.7 1.62 4.24 1.79v4.03c-1.44-.05-2.89-.35-4.2-.97-.57-.26-1.1-.59-1.59-1.01V14.5c.03 2.11-.6 4.29-2.12 5.85-1.55 1.64-3.85 2.45-6.09 2.14-2.26-.31-4.33-1.81-5.26-3.89-1.01-2.22-.68-4.96 1.01-6.83 1.25-1.4 3.12-2.19 4.99-2.21.2 0 .4 0 .6.01v4.11c-.72-.1-1.48-.05-2.15.24-.71.3-1.28.91-1.55 1.61-.31.81-.2 1.77.3 2.47.53.76 1.45 1.18 2.37 1.09.91-.07 1.74-.68 2.11-1.51.27-.61.34-1.3.32-1.97V.02z"/></svg>
+                </a>
+                <a href="mailto:izimeylli@gmail.com" class="text-gray-400 hover:text-[--accent] transition">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0l-10.5 7.5-10.5-7.5" /></svg>
+                </a>
+            </div>
+            <br>
+                <a href="datenschutzerklärung.html"> Datenschutzerklärung</a>
+            <br>
+                <a hred="impressum.html" class="daten"> Impressum</a>
+        </div>
+    </section>
+
+    <!-- Anfrage Modal -->
+    <div id="checkout-modal" class="fixed inset-0 z-[80] hidden flex items-center justify-center p-4">
+        <div class="absolute inset-0 bg-black/60 backdrop-blur-md" onclick="closeCheckout()"></div>
+        <div class="bg-white w-full max-w-lg relative z-10 p-6 md:p-12 shadow-2xl max-h-[90vh] overflow-y-auto rounded-sm">
+            <button onclick="closeCheckout()" class="absolute top-4 right-4 text-gray-400 hover:text-black">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path d="M6 18L18 6M6 6l12 12" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </button>
+            <h2 class="text-2xl md:text-3xl serif italic mb-2 text-center">Anfrage senden</h2>
+            <form action="https://formsubmit.co/izimeylli@gmail.com" method="POST" class="space-y-6 mt-8">
+                <input type="hidden" name="_subject" value="Neue Kunst-Anfrage von Izi Arts">
+                <input type="hidden" name="_captcha" value="false">
+                <input type="hidden" name="Gewählte_Kunstwerke" id="form-items-hidden">
+                <input type="text" name="name" placeholder="Name" required class="w-full border-b border-gray-200 py-2 focus:outline-none focus:border-[--accent] transition text-sm">
+                <input type="email" name="email" placeholder="E-Mail" required class="w-full border-b border-gray-200 py-2 focus:outline-none focus:border-[--accent] transition text-sm">
+                <div id="form-summary" class="bg-gray-50 p-4 text-[10px] text-gray-600 space-y-1"></div>
+                <button type="submit" class="w-full bg-gray-900 text-white py-5 uppercase text-[10px] tracking-widest hover:bg-[--accent] transition-all">Anfrage abschicken</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Toast -->
+    <div id="toast" class="fixed bottom-10 left-1/2 -translate-x-1/2 md:left-10 md:translate-x-0 bg-gray-900 text-white px-8 py-4 rounded-sm text-[10px] uppercase tracking-[0.2em] transform translate-y-24 opacity-0 transition-all duration-700 z-[100]"></div>
+
+    <script>
+        // Cookie Banner Logik
+function acceptCookies() {
+    localStorage.setItem('cookiesAccepted', 'true');
+    document.getElementById('cookie-banner').style.display = 'none';
+    showToast("Einstellungen gespeichert");
+}
+
+function rejectCookies() {
+    localStorage.setItem('cookiesAccepted', 'false');
+    document.getElementById('cookie-banner').style.display = 'none';
+    // Da du keine Tracking-Cookies hast, wird hier einfach nur das Banner geschlossen.
+}
+
+// Prüfen ob bereits eine Wahl getroffen wurde
+window.addEventListener('DOMContentLoaded', () => {
+    const choice = localStorage.getItem('cookiesAccepted');
+    if (choice) {
+        document.getElementById('cookie-banner').style.display = 'none';
+    }
+});
+
+        const paintings = [
+            { id: 1, title: "Water lillies", price: 50, size: "50x50cm", img: "https://uploads.onecompiler.io/445ndr3tz/44dyvsn3y/1000104349.jpg" },
+            { id: 2, title: "Coastal bloom", price: 50, size: "50x100cm", img: "https://uploads.onecompiler.io/445ndr3tz/44dyw7x69/1000104342.jpg" },
+            { id: 3, title: "The artists view", price: 40, size: "30x40cm", img: "https://uploads.onecompiler.io/445ndr3tz/44dyw7x69/1000104345.jpg" },
+            { id: 4, title: "Lonely night", price: 30, size: "30x40cm", img: "https://uploads.onecompiler.io/445ndr3tz/44dyw7x69/1000104344.jpg" },
+            { id: 5, title: "Golden swirl", price: 15, size: "14x14cm", img: "https://uploads.onecompiler.io/445ndr3tz/44dyw7x69/1000104343.jpg" }
+        ];
+
+        let cart = [];
+
+        function renderGallery() {
+            const grid = document.getElementById('paintings-grid');
+            grid.innerHTML = paintings.map((p) => `
+                <div class="reveal group">
+                    <div class="relative overflow-hidden aspect-square mb-6 bg-gray-100 rounded-sm">
+                        <img src="${p.img}" alt="${p.title}" class="w-full h-full object-cover transition-transform duration-[1.5s] lg:group-hover:scale-110">
+                        <div class="image-overlay absolute inset-0 flex flex-col justify-end lg:justify-center p-4 lg:opacity-0">
+                            <button onclick="addToCart(${p.id})" class="bg-white/95 text-black w-full py-3 lg:py-4 text-[9px] uppercase tracking-[0.3em] hover:bg-black hover:text-white transition-all shadow-xl lg:transform lg:translate-y-8 lg:group-hover:translate-y-0">In den Korb</button>
+                        </div>
+                    </div>
+                    <div class="flex justify-between items-start px-1">
+                        <div>
+                            <h3 class="serif text-lg md:text-xl mb-1">${p.title}</h3>
+                            <p class="text-[9px] text-gray-400 uppercase tracking-[0.2em] font-light">${p.size}</p>
+                        </div>
+                        <p class="text-sm font-medium text-[--accent]">${p.price} €</p>
+                    </div>
+                </div>
+            `).join('');
+            setTimeout(handleReveal, 100);
+        }
+
+        function handleReveal() {
+            document.querySelectorAll('.reveal').forEach(el => {
+                if (el.getBoundingClientRect().top < window.innerHeight - 50) el.classList.add('active');
+            });
+        }
+
+        function addToCart(id) {
+            const p = paintings.find(item => item.id === id);
+            if (!cart.some(item => item.id === id)) {
+                cart.push(p);
+                updateUI();
+                showToast(`"${p.title}" hinzugefügt`);
+            } else {
+                showToast("Bereits im Warenkorb");
+            }
+        }
+
+        function updateUI() {
+            const count = document.getElementById('cart-count');
+            const list = document.getElementById('cart-items-list');
+            const footer = document.getElementById('cart-footer');
+            const total = document.getElementById('cart-total');
+
+            count.textContent = cart.length;
+            count.style.opacity = cart.length > 0 ? '1' : '0';
+            count.style.transform = cart.length > 0 ? 'scale(1)' : 'scale(0)';
+
+            if (cart.length === 0) {
+                list.innerHTML = '<p class="text-gray-400 text-center italic py-20">Noch keine Kunstwerke ausgewählt.</p>';
+                footer.classList.add('hidden');
+            } else {
+                footer.classList.remove('hidden');
+                let totalVal = cart.reduce((sum, item) => sum + item.price, 0);
+                list.innerHTML = cart.map((item, i) => `
+                    <div class="flex space-x-4 items-center border-b border-gray-50 pb-6">
+                        <img src="${item.img}" class="w-16 h-16 object-cover rounded-sm flex-shrink-0">
+                        <div class="flex-grow">
+                            <h4 class="serif text-sm italic">${item.title}</h4>
+                            <p class="text-[10px] text-gray-400 mt-1">${item.price} €</p>
+                        </div>
+                        <button onclick="removeFromCart(${i})" class="text-gray-300 hover:text-black transition p-2 flex-shrink-0">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                        </button>
+                    </div>
+                `).join('');
+                total.textContent = totalVal.toFixed(2) + ' €';
+                document.getElementById('form-items-hidden').value = cart.map(item => item.title).join(", ");
+                document.getElementById('form-summary').innerHTML = `
+                    <p class="font-bold mb-1 italic">Deine Auswahl:</p>
+                    ${cart.map(item => `<div>• ${item.title} (${item.price} €)</div>`).join('')}
+                    <p class="mt-2 border-t border-gray-200 pt-1 font-bold">Total: ${totalVal.toFixed(2)} €</p>
+                `;
+            }
+        }
+
+        function removeFromCart(i) { cart.splice(i, 1); updateUI(); }
+
+        function toggleCart() {
+            const sidebar = document.getElementById('cart-sidebar');
+            const overlay = document.getElementById('cart-overlay');
+            const isOpen = sidebar.classList.contains('cart-open');
+            sidebar.classList.toggle('cart-open', !isOpen);
+            sidebar.classList.toggle('cart-closed', isOpen);
+            overlay.classList.toggle('opacity-0', isOpen);
+            overlay.classList.toggle('pointer-events-none', isOpen);
+            document.body.classList.toggle('no-scroll', !isOpen);
+        }
+
+        function showCheckout() { document.getElementById('checkout-modal').classList.remove('hidden'); }
+        function closeCheckout() { document.getElementById('checkout-modal').classList.add('hidden'); }
+
+        function showToast(msg) {
+            const t = document.getElementById('toast');
+            t.textContent = msg;
+            t.classList.remove('translate-y-24', 'opacity-0');
+            setTimeout(() => t.classList.add('translate-y-24', 'opacity-0'), 3000);
+        }
+
+        window.addEventListener('scroll', () => {
+            const nav = document.getElementById('main-nav');
+            if (window.scrollY > 50) {
+                nav.classList.add('bg-white/95', 'shadow-sm', 'py-3');
+            } else {
+                nav.classList.remove('bg-white/95', 'shadow-sm', 'py-3');
+            }
+            handleReveal();
+        });
+
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function (e) {
+                const targetId = this.getAttribute('href');
+                if (targetId === '#') return;
+                e.preventDefault();
+                const targetElement = document.querySelector(targetId);
+                if (targetElement) targetElement.scrollIntoView({ behavior: 'smooth' });
+            });
+        });
+
+        // ✅ Chrome Mobile Fix: echte Viewport-Höhe via JS setzen
+        function setCartHeight() {
+            // window.innerHeight reicht nicht — Chrome's Gesten-Leiste unten frisst nochmal Platz
+            // Daher zusätzlich visualViewport nutzen wenn verfügbar
+            const h = window.visualViewport ? window.visualViewport.height : window.innerHeight;
+            document.getElementById('cart-sidebar').style.height = h + 'px';
+        }
+        setCartHeight();
+        window.addEventListener('resize', setCartHeight);
+        if (window.visualViewport) {
+            window.visualViewport.addEventListener('resize', setCartHeight);
+        }
+
+        window.onload = renderGallery;
+    </script>
 </body>
 </html>
